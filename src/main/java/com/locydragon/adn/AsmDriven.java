@@ -96,27 +96,13 @@ public class AsmDriven {
 								"    }\n" +
 								"    return ret; \n" +
 								"}";
-						File codes = new File("C:\\Users\\Administrator\\Desktop\\Driven.yml");
-						if (!codes.exists()) {
-							try {
-								codes.createNewFile();
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
-						try {
-							FileWriter writer = new FileWriter(codes);
-							writer.write(code);
-							writer.close();
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
 						CtMethod newMethod = CtNewMethod.make(code, pluginClass);
 						pluginClass.addMethod(newMethod);
 						//createListenerMethod.setBody(code);
 					} catch (CannotCompileException e) {
 						e.printStackTrace();
 					}
+					System.out.println("===> 欢迎使用AsmDriven插件.插件已经加载注入了!");
 					try {
 						return pluginClass.toBytecode();
 					} catch (IOException | CannotCompileException e) {

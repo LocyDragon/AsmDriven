@@ -1,7 +1,6 @@
 package com.locydragon.adn;
 
 import com.esotericsoftware.reflectasm.MethodAccess;
-import org.bukkit.Bukkit;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventException;
 import org.bukkit.event.Listener;
@@ -18,12 +17,15 @@ public class ProxyDriven implements EventExecutor {
 	private Class<?> eventClass;
 	private MethodAccess access;
 	private Method method;
+	private int name;
 	public ProxyDriven(CustomTimingsHandler handler, Class<?> eventClass,
 					   MethodAccess access, Method method) {
 		this.timings = handler;
 		this.eventClass = eventClass;
 		this.access = access;
 		this.method = method;
+		String methodName = method.getName();
+		this.name = access.getIndex(methodName);
 	}
 	@Override
 	public void execute(Listener listener, Event event) throws EventException {
@@ -31,12 +33,12 @@ public class ProxyDriven implements EventExecutor {
 			if (!eventClass.isAssignableFrom(event.getClass())) {
 				return;
 			}
-			boolean isAsync = event.isAsynchronous();
-			if (!isAsync) {
+			boolean isSync = !event.isAsynchronous();
+			if (isSync) {
 				timings.startTiming();
 			}
-			access.invoke(listener, method.getName(), new Object[] {event});
-			if (!isAsync) {
+			access.invoke(listener, name, event);
+			if (isSync) {
 				timings.stopTiming();
 			}
 		} catch (Throwable t) {
