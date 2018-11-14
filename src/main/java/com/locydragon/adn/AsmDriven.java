@@ -15,7 +15,26 @@ public class AsmDriven {
 		inst.addTransformer((loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
 			if (className.equals(targetLocation)) {
 				ClassPool pool = ClassPool.getDefault();
-				pool.importPackage("com.esotericsoftware.reflectasm.MethodAccess");
+				{
+					pool.importPackage("com.esotericsoftware.reflectasm.MethodAccess");
+					pool.importPackage("com.locydragon.adn.ProxyDriven");
+					pool.importPackage("org.apache.commons.lang.Validate");
+					pool.importPackage("java.util.Map");
+					pool.importPackage("java.util.HashMap");
+					pool.importPackage("java.lang.reflect.Method");
+					pool.importPackage("java.util.Set");
+					pool.importPackage("java.util.HashSet");
+					pool.importPackage("org.bukkit.event.EventHandler");
+					pool.importPackage("org.bukkit.event.Event");
+					pool.importPackage("org.bukkit.*");
+					pool.importPackage("org.bukkit.plugin.AuthorNagException");
+					pool.importPackage("org.spigotmc.CustomTimingsHandler");
+					pool.importPackage("org.bukkit.plugin.EventExecutor");
+					pool.importPackage("org.bukkit.plugin.RegisteredListener");
+					pool.importPackage("org.bukkit.event.Listener");
+					pool.importPackage("org.bukkit.plugin.Plugin");
+					pool.importPackage("java.util.Iterator");
+				}
 				try {
 					CtClass pluginClass = pool.getCtClass(className.replace("/", "."));
 					CtMethod createListenerMethod =
@@ -24,7 +43,8 @@ public class AsmDriven {
 											, pool.getCtClass("org.bukkit.plugin.Plugin") });
 					pluginClass.removeMethod(createListenerMethod);
 					try {
-						String code = "{ \n" +
+						String code = "public Map createRegisteredListeners(Listener listener, Plugin plugin)" +
+								"{ \n" +
 								"    Validate.notNull(plugin, \"Plugin can not be null\");\n" +
 								"    Validate.notNull(listener, \"Listener can not be null\");\n" +
 								"\n" +
@@ -40,7 +60,7 @@ public class AsmDriven {
 								"        methods.add(method);\n" +
 								"      }\n" +
 								"      for (int j = 0;j < privateMethods.length;j++) {\n" +
-								"          Method method = privateMethods[i];" +
+								"          Method method = privateMethods[j];" +
 								"        methods.add(method);\n" +
 								" }\n"+
 								"    } catch (NoClassDefFoundError e)\n" +
@@ -48,8 +68,9 @@ public class AsmDriven {
 								"      plugin.getLogger().severe(\"Plugin \" + plugin.getDescription().getFullName() + \" has failed to register events for \" + listener.getClass() + \" because \" + e.getMessage() + \" does not exist.\");\n" +
 								"      return ret;\n" +
 								"    }\n" +
-								"    for (int k = 0;k < methods.size();k++) {\n" +
-								"      final Method method = methods.get(k);"+
+								"    Iterator iterator = methods.iterator();\n" +
+								"    while (iterator.hasNext()) {\n" +
+								"    Method method = (Method)iterator.next();" +
 								"      EventHandler eh = (EventHandler)method.getAnnotation(EventHandler.class);\n" +
 								"      if (eh != null)\n" +
 								"      {\n" +
@@ -66,43 +87,9 @@ public class AsmDriven {
 								"            eventSet = new HashSet();\n" +
 								"            ret.put(eventClass, eventSet);\n" +
 								"          }\n" +
-								"          for (Class clazz = eventClass;Event.class.isAssignableFrom(clazz);clazz = clazz.getSuperclass()) {\n" +
-								"            if (clazz.getAnnotation(Deprecated.class) != null) {\n" +
-								"              Warning warning = (Warning)clazz.getAnnotation(Warning.class);\n" +
-								"              Warning.WarningState warningState = this.server.getWarningState();\n" +
-								"              if (!warningState.printFor(warning)) {\n" +
-								"                break;\n" +
-								"              }\n" +
-								"              plugin.getLogger().log(\n" +
-								"                Level.WARNING, \n" +
-								"                String.format(\n" +
-								"                \"\\\"%s\\\" has registered a listener for %s on method \\\"%s\\\", but the event is Deprecated. \\\"%s\\\"; please notify the authors %s.\", new Object[] { \n" +
-								"                plugin.getDescription().getFullName(), \n" +
-								"                clazz.getName(), \n" +
-								"                method.toGenericString(), \n" +
-								"                (warning != null) && (warning.reason().length() != 0) ? warning.reason() : \"Server performance will be affected\", \n" +
-								"                Arrays.toString(plugin.getDescription().getAuthors().toArray()) }), \n" +
-								"                warningState == Warning.WarningState.ON ? new AuthorNagException(null) : null);\n" +
-								"              break;\n" +
-								"            }\n" +
-								"          }\n" +
 								"          MethodAccess access = MethodAccess.get(listener.getClass()); \n" +
 								"          final CustomTimingsHandler timings = new CustomTimingsHandler(\"Plugin: \" + plugin.getDescription().getFullName() + \" Event: \" + listener.getClass().getName() + \"::\" + method.getName() + \"(\" + eventClass.getSimpleName() + \")\", pluginParentTimer);\n" +
-								"          EventExecutor executor = new EventExecutor() {" +
-								"            public void execute(Listener listener, Event event) throws EventException {" +
-								"              try {" +
-								"                if (!eventClass.isAssignableFrom(event.getClass())) {" +
-								"                  return;" +
-								"                }" +
-								"                boolean isAsync = event.isAsynchronous();" +
-								"                if (!isAsync) { timings.startTiming(); }" +
-								"                access.invoke(listener, method.getName(), new Object[] { event });" +
-								"                if (!isAsync) { timings.stopTiming(); } " +
-								"              } catch (Throwable t) {" +
-								"                throw new EventException(t);" +
-								"              }" +
-								"            }" +
-								"          };" +
+								"          EventExecutor executor = new ProxyDriven(timings, eventClass, access, method);\n" +
 								"          ((Set)eventSet).add(new RegisteredListener(listener, executor, eh.priority(), plugin, eh.ignoreCancelled()));\n" +
 								"        }\n" +
 								"      }\n" +
@@ -124,12 +111,9 @@ public class AsmDriven {
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
-						createListenerMethod.setBody(code);
-					} catch (CannotCompileException e) {
-						e.printStackTrace();
-					}
-					try {
-						pluginClass.addMethod(createListenerMethod);
+						CtMethod newMethod = CtNewMethod.make(code, pluginClass);
+						pluginClass.addMethod(newMethod);
+						//createListenerMethod.setBody(code);
 					} catch (CannotCompileException e) {
 						e.printStackTrace();
 					}
