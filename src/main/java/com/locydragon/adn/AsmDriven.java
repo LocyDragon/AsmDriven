@@ -2,12 +2,12 @@ package com.locydragon.adn;
 
 import com.esotericsoftware.reflectasm.MethodAccess;
 import javassist.*;
-
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 
+/**
+ * @author LocyDragon
+ */
 public class AsmDriven {
 	public static MethodAccess NULL_ARGMENT;
 	public static final String targetLocation = "org/bukkit/plugin/java/JavaPluginLoader";
